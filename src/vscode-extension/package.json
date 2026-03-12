@@ -1,0 +1,65 @@
+{
+  "name": "snipvault",
+  "displayName": "SnipVault",
+  "description": "Save and search code snippets from VS Code with AI-powered tagging and semantic search.",
+  "version": "0.1.0",
+  "publisher": "snipvault",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Snippets", "Other"],
+  "activationEvents": [
+    "onCommand:snipvault.saveSnippet",
+    "onCommand:snipvault.searchSnippets",
+    "onCommand:snipvault.authenticate"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "snipvault.saveSnippet",
+        "title": "SnipVault: Save Selection as Snippet"
+      },
+      {
+        "command": "snipvault.searchSnippets",
+        "title": "SnipVault: Search Snippets"
+      },
+      {
+        "command": "snipvault.authenticate",
+        "title": "SnipVault: Sign In"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "snipvault.saveSnippet",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "snipvault.searchSnippets",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f"
+      }
+    ],
+    "configuration": {
+      "title": "SnipVault",
+      "properties": {
+        "snipvault.apiUrl": {
+          "type": "string",
+          "default": "https://snipvault.dev",
+          "description": "The SnipVault API URL"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --watch"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.0.0"
+  }
+}
