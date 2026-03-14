@@ -49,13 +49,15 @@ export const searchRouter = router({
 
       const sql = neon(process.env.DATABASE_URL!);
 
-      // Build filter clauses
-      const filters: string[] = [`s.workspace_id = '${ctx.workspaceId}'`];
+      // Build parameterized filter clauses
+      const params: unknown[] = [];
+      const conditions: string[] = [];
+      conditions.push(`s.workspace_id = $${params.push(ctx.workspaceId)}`);
       if (language) {
-        filters.push(`s.language = '${language}'`);
+        conditions.push(`s.language = $${params.push(language)}`);
       }
       if (collectionId) {
-        filters.push(`s.collection_id = '${collectionId}'`);
+        conditions.push(`s.collection_id = $${params.push(collectionId)}`);
       }
 
       // Tag filtering
@@ -69,10 +71,10 @@ export const searchRouter = router({
         if (tagSnippetIds.length === 0) {
           return { results: [] };
         }
-        filters.push(`s.id IN (${tagSnippetIds.map((id) => `'${id}'`).join(',')})`);
+        conditions.push(`s.id = ANY($${params.push(tagSnippetIds)})`);
       }
 
-      const filterClause = filters.join(' AND ');
+      const filterClause = conditions.join(' AND ');
       const vectorStr = queryEmbedding.length > 0 ? `[${queryEmbedding.join(',')}]` : null;
 
       // Hybrid search query
@@ -80,31 +82,35 @@ export const searchRouter = router({
 
       if (vectorStr) {
         // Full hybrid search: vector + trigram
-        const rows = await sql`
-          WITH vector_search AS (
+        const vectorParamIdx = params.push(vectorStr);
+        const queryParamIdx = params.push(query);
+        const limitParamIdx = params.push(limit);
+
+        const rows = await sql(
+          `WITH vector_search AS (
             SELECT
               sf.snippet_id,
               sf.id as file_id,
               sf.content,
               sf.filename,
-              1 - (sf.embedding <=> ${vectorStr}::vector) AS vector_score
+              1 - (sf.embedding <=> $${vectorParamIdx}::vector) AS vector_score
             FROM snippet_files sf
             JOIN snippets s ON s.id = sf.snippet_id
-            WHERE sf.embedding IS NOT NULL AND ${sql.unsafe(filterClause)}
-            ORDER BY sf.embedding <=> ${vectorStr}::vector
+            WHERE sf.embedding IS NOT NULL AND ${filterClause}
+            ORDER BY sf.embedding <=> $${vectorParamIdx}::vector
             LIMIT 100
           ),
           text_search AS (
             SELECT
               s.id,
               GREATEST(
-                similarity(s.title, ${query}),
-                similarity(sf.content, ${query})
+                similarity(s.title, $${queryParamIdx}),
+                similarity(sf.content, $${queryParamIdx})
               ) AS text_score
             FROM snippets s
             JOIN snippet_files sf ON sf.snippet_id = s.id
-            WHERE (s.title % ${query} OR sf.content % ${query})
-              AND ${sql.unsafe(filterClause)}
+            WHERE (s.title % $${queryParamIdx} OR sf.content % $${queryParamIdx})
+              AND ${filterClause}
           )
           SELECT
             v.snippet_id,
@@ -128,8 +134,9 @@ export const searchRouter = router({
           JOIN snippets s ON s.id = v.snippet_id
           LEFT JOIN text_search t ON v.snippet_id = t.id
           ORDER BY combined_score DESC
-          LIMIT ${limit}
-        `;
+          LIMIT $${limitParamIdx}`,
+          params,
+        );
 
         results = rows.map((row: Record<string, unknown>) => ({
           snippetId: row.snippet_id as string,
@@ -147,8 +154,13 @@ export const searchRouter = router({
         }));
       } else {
         // Text-only fallback search
-        const rows = await sql`
-          SELECT
+        const queryParamIdx = params.push(query);
+        const ilikePattern = '%' + query + '%';
+        const ilikeParamIdx = params.push(ilikePattern);
+        const limitParamIdx = params.push(limit);
+
+        const rows = await sql(
+          `SELECT
             s.id AS snippet_id,
             s.title,
             s.description,
@@ -161,16 +173,17 @@ export const searchRouter = router({
             sf.content,
             sf.filename,
             GREATEST(
-              similarity(s.title, ${query}),
-              similarity(sf.content, ${query})
+              similarity(s.title, $${queryParamIdx}),
+              similarity(sf.content, $${queryParamIdx})
             ) AS combined_score
           FROM snippets s
           JOIN snippet_files sf ON sf.snippet_id = s.id
-          WHERE (s.title ILIKE ${'%' + query + '%'} OR sf.content ILIKE ${'%' + query + '%'})
-            AND ${sql.unsafe(filterClause)}
+          WHERE (s.title ILIKE $${ilikeParamIdx} OR sf.content ILIKE $${ilikeParamIdx})
+            AND ${filterClause}
           ORDER BY combined_score DESC
-          LIMIT ${limit}
-        `;
+          LIMIT $${limitParamIdx}`,
+          params,
+        );
 
         results = rows.map((row: Record<string, unknown>) => ({
           snippetId: row.snippet_id as string,
