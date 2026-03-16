@@ -126,7 +126,8 @@ async function findOrCreateTag(
     where: and(eq(tags.workspaceId, workspaceId), eq(tags.name, normalizedName)),
   });
 
-  return found!.id;
+  if (!found) throw new Error(`Tag race condition: could not find or create tag "${name}" in workspace ${workspaceId}`);
+  return found.id;
 }
 
 /**

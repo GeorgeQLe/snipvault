@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, protectedProcedure } from '../trpc';
 import { snippets, snippetFiles, snippetTags } from '@/lib/db/schema';
 import { eq, and, desc, asc, inArray, ilike, sql } from 'drizzle-orm';
@@ -127,7 +128,7 @@ export const snippetRouter = router({
       });
 
       if (!snippet) {
-        throw new Error('Snippet not found');
+        throw new TRPCError({ code: "NOT_FOUND", message: "Snippet not found" });
       }
 
       // Increment access count
@@ -215,7 +216,7 @@ export const snippetRouter = router({
           input.content,
         ),
       ]).catch((err) => {
-        console.error('[Snippet Create] Background AI tasks failed:', err);
+        console.error(`[Snippet ${snippet.id}] Background AI tasks failed:`, err);
       });
 
       return snippet;
@@ -243,7 +244,7 @@ export const snippetRouter = router({
       });
 
       if (!existing) {
-        throw new Error('Snippet not found');
+        throw new TRPCError({ code: "NOT_FOUND", message: "Snippet not found" });
       }
 
       const snippetUpdates: Record<string, unknown> = { updatedAt: new Date() };
@@ -281,7 +282,7 @@ export const snippetRouter = router({
           autoTagSnippet(existing.id, ctx.workspaceId, title, content, language, description),
           generateEmbedding(file.id, title, description ?? null, language, content),
         ]).catch((err) => {
-          console.error('[Snippet Update] Background AI tasks failed:', err);
+          console.error(`[Snippet ${existing.id}] Background AI tasks failed:`, err);
         });
       }
 
@@ -311,7 +312,7 @@ export const snippetRouter = router({
       });
 
       if (!snippet) {
-        throw new Error('Snippet not found');
+        throw new TRPCError({ code: "NOT_FOUND", message: "Snippet not found" });
       }
 
       await ctx.db
