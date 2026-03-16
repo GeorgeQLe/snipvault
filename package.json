@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.3",
@@ -23,6 +25,7 @@
     "nanoid": "^3.3.11",
     "next": "16.1.6",
     "openai": "^6.21.0",
+    "p-limit": "^5.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "resend": "^6.9.2",
@@ -41,6 +44,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.0"
   }
 }

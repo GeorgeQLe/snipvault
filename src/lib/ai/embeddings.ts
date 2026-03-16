@@ -1,5 +1,8 @@
 import OpenAI from 'openai';
+import pLimit from 'p-limit';
 import { neon } from '@neondatabase/serverless';
+
+const embeddingLimit = pLimit(5);
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -34,13 +37,15 @@ function buildEmbeddingInput(
  * Generate an embedding vector using OpenAI text-embedding-3-small.
  */
 async function generateEmbeddingVector(text: string): Promise<number[]> {
-  const response = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: text,
-    dimensions: 1536,
-  });
+  return embeddingLimit(async () => {
+    const response = await openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: text,
+      dimensions: 1536,
+    });
 
-  return response.data[0].embedding;
+    return response.data[0].embedding;
+  });
 }
 
 /**
