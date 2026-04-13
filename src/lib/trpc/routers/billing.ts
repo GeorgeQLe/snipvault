@@ -8,6 +8,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-01-28.clover',
 });
 
+const PRO_LOOKUP_KEY = 'snipvault.pro.monthly';
+
 export const PLANS = {
   free: {
     name: 'Free',
@@ -27,9 +29,22 @@ export const PLANS = {
       'Priority support',
     ],
     price: 800, // cents
-    priceId: process.env.STRIPE_PRO_PRICE_ID,
+    lookupKey: PRO_LOOKUP_KEY,
   },
 } as const;
+
+/** Resolve the Stripe price ID for the Pro plan via lookup key. */
+async function resolveProPriceId(): Promise<string> {
+  const prices = await stripe.prices.list({
+    lookup_keys: [PRO_LOOKUP_KEY],
+    limit: 1,
+  });
+  const price = prices.data[0];
+  if (!price) {
+    throw new Error(`No Stripe price found for lookup key "${PRO_LOOKUP_KEY}"`);
+  }
+  return price.id;
+}
 
 export const billingRouter = router({
   /**
@@ -64,7 +79,7 @@ export const billingRouter = router({
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
-        metadata: { userId: user.id },
+        metadata: { userId: user.id, project: 'snipvault' },
       });
       customerId = customer.id;
       await ctx.db
@@ -74,24 +89,27 @@ export const billingRouter = router({
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const priceId = await resolveProPriceId();
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       line_items: [
         {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'SnipVault Pro',
-              description: 'Unlimited snippets, AI tagging, semantic search, and more.',
-            },
-            unit_amount: PLANS.pro.price,
-            recurring: { interval: 'month' },
-          },
+          price: priceId,
           quantity: 1,
         },
       ],
+      subscription_data: {
+        metadata: {
+          project: 'snipvault',
+          environment: process.env.NODE_ENV || 'development',
+          entityType: 'user',
+          entityId: user.id,
+          appUrl: 'https://snipvault.dev',
+          priceLookupKey: PRO_LOOKUP_KEY,
+        },
+      },
       success_url: `${appUrl}/billing?success=true`,
       cancel_url: `${appUrl}/billing?canceled=true`,
       metadata: { userId: user.id },
