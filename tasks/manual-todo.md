@@ -1,14 +1,21 @@
-# Manual Todo — SnipVault
+# Manual Tasks — SnipVault
 
-> Context: LexCorp Phase 7 — Portfolio Billing Operating Model
+> Updated: 2026-04-14
+> Source of truth for Stripe config: `stripe-registry.yaml` in lexcorp-war-room
 
-## Stripe Migration (Phase 7.7)
+## Phase 7: Portfolio Billing Operating Model (LexCorp)
 
-- [ ] Migrate `STRIPE_PRO_PRICE_ID` env var to `snipvault.pro.monthly` lookup key
-- [ ] Add metadata contract to checkout sessions: `project`, `environment`, `entityType`, `entityId`, `appUrl`, `priceLookupKey`
-- [ ] Add `metadata.project: "snipvault"` to Customer creation
+### Completed (code migration)
+- [x] Migrated `STRIPE_PRO_PRICE_ID` env var to `snipvault.pro.monthly` lookup key
+- [x] Added metadata contract to checkout sessions: `project`, `environment`, `entityType`, `entityId`, `plan`, `appUrl`, `priceLookupKey`
+- [x] Added `metadata.project: "snipvault"` to Customer creation
 
-## Stripe Dashboard
-
-- [ ] Create products with namespaced lookup keys per registry
-- [ ] Configure webhook endpoint restricted to required events
+### Remaining — Stripe Dashboard
+- [ ] Create "SnipVault Pro" product in Stripe Dashboard
+  - [ ] Add price with lookup key `snipvault.pro.monthly` ($8.00/mo)
+  - [ ] Add price with lookup key `snipvault.pro.yearly` ($64.00/yr)
+- [ ] Configure webhook endpoint: `https://snipvault.dev/api/webhooks/stripe`
+  - Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
+  - Payload: snapshot, API version: `2025-03-31.basil`
+- [ ] Pin Stripe API version to `2025-03-31.basil`
+- [ ] Remove `STRIPE_PRO_PRICE_ID` from env config (replaced by lookup key)
